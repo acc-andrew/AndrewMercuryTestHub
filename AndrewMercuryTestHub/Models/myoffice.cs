@@ -8,7 +8,7 @@
         public required string acpd_sname { get; set; }  // nvarchar 40
         public required string acpd_email { get; set; } // nvarchar 60
         public int acpd_status { get; set; }// 0..255
-        public char acpd_stop { get; set; } // 0/1
+        public bool acpd_stop { get; set; } // 0/1
         public required string acpd_stopMemo { get; set; } // 600
         public required string acpd_LoginID { get; set; } // nv30  登入帳號
         public required string acpd_LoginPW { get; set; } // nv60 登入密碼

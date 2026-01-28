@@ -17,44 +17,55 @@ namespace AndrewMercuryTestHub.Controllers
         private const string connString = "Server=DESKTOP-5BC4O5I;Database=BackendExamHub;Trusted_Connection=true;TrustServerCertificate=true";
         // GET: api/<myofficeacpdController>
         [HttpGet]
-        // Task<ActionResult<IEnumerable<ItemTwoM>>> IEnumerable<string> 
-        public async Task<ActionResult<List<myoffice>>>? Get()
+        public async Task<ActionResult<List<myoffice>>> Get()
         {
             var resultBuilder = new StringBuilder();
-            using (SqlConnection conn = new SqlConnection(connString))
+
+            // 建議將連線字串檢查放在外面或使用 DI
+            if (string.IsNullOrEmpty(connString)) return StatusCode(500, "Connection string is missing.");
+
+            try
             {
-                using (SqlCommand cmd = new SqlCommand("usp_getall_myoffice", conn))
+                using (SqlConnection conn = new SqlConnection(connString))
                 {
-                    cmd.CommandType = CommandType.StoredProcedure;
-
-                    conn.Open();
-                    cmd.ExecuteNonQuery();
-
-                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    using (SqlCommand cmd = new SqlCommand("usp_getall_myoffice", conn))
                     {
-                        // to read every column for each JSON row
-                        while (reader.Read())
+                        cmd.CommandType = CommandType.StoredProcedure;
+
+                        await conn.OpenAsync();
+
+                        using (SqlDataReader reader = await cmd.ExecuteReaderAsync())
                         {
-                            resultBuilder.Append(reader.GetValue(0).ToString());
+                            while (await reader.ReadAsync())
+                            {
+                                // 讀取第一欄 (SQL FOR JSON 的結果)
+                                resultBuilder.Append(reader.GetValue(0).ToString());
+                            }
                         }
                     }
                 }
+
+                string finalJson = resultBuilder.ToString();
+
+                if (string.IsNullOrEmpty(finalJson))
+                {
+                    return Ok(new List<myoffice>()); 
+                }
+
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                };
+
+                List<myoffice> result = JsonSerializer.Deserialize<List<myoffice>>(finalJson, options);
+                return Ok(result);
+
             }
-
-            string finalJson = resultBuilder.ToString();
-
-            // 如果 JSON 為空，回傳空清單；否則反序列化
-            var options = new JsonSerializerOptions
+            catch (Exception ex)
             {
-                PropertyNameCaseInsensitive = true
-            };
-
-            List<myoffice> result =  string.IsNullOrEmpty(finalJson)
-                ? new List<myoffice>()
-                : JsonSerializer.Deserialize<List<myoffice>>(finalJson, options);
-
-            return Ok(result); // 必須包裝在 Ok() 內以符合 ActionResult 要求的格式
-        }// public IEnumerable<string> Get()
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
 
         // GET api/<myofficeacpdController>/5
         [HttpGet("{id}")]
@@ -65,8 +76,50 @@ namespace AndrewMercuryTestHub.Controllers
 
         // POST api/<myofficeacpdController>
         [HttpPost]
-        public void Post([FromBody] string value)
+        public async Task<ActionResult<string>> Post([FromBody] myoffice model)
         {
+
+            var options = new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+            string jsonForSql = JsonSerializer.Serialize(model, options);
+
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(connString))
+                {
+                    using (SqlCommand cmd = new SqlCommand("usp_add_one_myoffice", conn))
+                    {
+                        cmd.CommandType = CommandType.StoredProcedure;
+
+                        cmd.Parameters.Add(new SqlParameter("@acpd_sid", SqlDbType.NVarChar) { Value = model.acpd_sid });
+                        cmd.Parameters.Add(new SqlParameter("@acpd_cname", SqlDbType.NVarChar) { Value = model.acpd_cname });
+                        cmd.Parameters.Add(new SqlParameter("@acpd_ename", SqlDbType.NVarChar) { Value = model.acpd_ename });
+
+                        cmd.Parameters.Add(new SqlParameter("@acpd_sname", SqlDbType.NVarChar) { Value = model.acpd_sname });
+                        cmd.Parameters.Add(new SqlParameter("@acpd_email", SqlDbType.NVarChar) { Value = model.acpd_email });
+                        cmd.Parameters.Add(new SqlParameter("@acpd_status", SqlDbType.NVarChar) { Value = model.acpd_status });
+
+                        cmd.Parameters.Add(new SqlParameter("@acpd_stop", SqlDbType.NVarChar) { Value = model.acpd_stop });
+                        cmd.Parameters.Add(new SqlParameter("@acpd_stopMemo", SqlDbType.NVarChar) { Value = model.acpd_stopMemo });
+                        cmd.Parameters.Add(new SqlParameter("@acpd_LoginID", SqlDbType.NVarChar) { Value = model.acpd_LoginID });
+
+                        cmd.Parameters.Add(new SqlParameter("@loginpw", SqlDbType.NVarChar) { Value = model.acpd_LoginPW });
+                        cmd.Parameters.Add(new SqlParameter("@acpd_memo", SqlDbType.NVarChar) { Value = model.acpd_memo });
+                        cmd.Parameters.Add(new SqlParameter("@acpd_nowdatetime", SqlDbType.DateTime) { Value = model.acpd_nowdatetime });
+
+                        cmd.Parameters.Add(new SqlParameter("@appd_nowid", SqlDbType.NVarChar) { Value = model.appd_nowid });
+                        cmd.Parameters.Add(new SqlParameter("@acpd_upddatetitme", SqlDbType.DateTime) { Value = model.acpd_upddatetitme });
+                        cmd.Parameters.Add(new SqlParameter("@acpd_updid", SqlDbType.NVarChar) { Value = model.acpd_updid });
+
+                        await conn.OpenAsync();
+                        await cmd.ExecuteNonQueryAsync();
+                    }
+                }
+                return Ok("insert OK");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"SQL Error: {ex.Message}");
+            }
         }
 
         // PUT api/<myofficeacpdController>/5
