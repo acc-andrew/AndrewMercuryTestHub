@@ -18,10 +18,5 @@
         public DateTime acpd_upddatetitme { get; set; } // 修改日期
         public required string acpd_updid { get; set; } // nv20 修改人員代碼
 
-
-
-
-
-
     }// public class myoffice
 }
