@@ -1,0 +1,6 @@
+@AndrewMercuryTestHub_HostAddress = http://localhost:5166
+
+GET {{AndrewMercuryTestHub_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
